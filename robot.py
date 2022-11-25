@@ -4,7 +4,7 @@ TODO: You can either work from this skeleton, or you can build on your solution 
 
 
 # list of valid command names
-valid_commands = ['off', 'help', 'forward', 'back', 'right', 'left', 'sprint']
+valid_commands = ['off', 'help', 'forward', 'back', 'right', 'left', 'sprint', "replay", "silent", "reversed"]
 
 # variables tracking position and direction
 position_x = 0
@@ -15,6 +15,10 @@ current_direction_index = 0
 # area limit vars
 min_y, max_y = -200, 200
 min_x, max_x = -100, 100
+
+# list of historical commands
+hist_lis = []
+
 
 
 def get_robot_name():
@@ -68,10 +72,13 @@ def valid_command(command):
     Returns a boolean indicating if the robot can understand the command or not
     Also checks if there is an argument to the command, and if it a valid int
     """
-
+    com = command.split()
     (command_name, arg1) = split_command_input(command)
+    new = arg1.split()
+    special_char = arg1.split("-")
+    reverse_with_num = arg1.split()
 
-    return command_name.lower() in valid_commands and (len(arg1) == 0 or is_int(arg1))
+    return command_name.lower() in valid_commands and (len(arg1) == 0 or is_int(arg1) or (is_int(special_char[0]) and is_int(special_char[1]))  or arg1.lower() in valid_commands or (len(new)==2 and new[0].lower()== "reversed" or (is_int(reverse_with_num[0]) and str(reverse_with_num[1]))))
 
 
 def output(name, message):
@@ -208,15 +215,123 @@ def do_sprint(robot_name, steps):
         print(command_output)
         return do_sprint(robot_name, steps - 1)
 
+    
+def replay_command(name,com):
+    """
+    Runs all types of replay function\commands
+    """
 
-def handle_command(robot_name, command):
+    number = number_locator(com)
+    lis =command_history(com,number) 
+    lis_len = len(lis)
+    
+    if "replay" == com:
+        n = [handle_command(name,i,"") for i in lis]
+        print(f" > {name} replayed {lis_len} commands.")
+        show_position(name)
+        return n
+
+    elif f"replay {number[0]}" == com :
+        leng_0 =len(lis)
+        m = lis[leng_0-int(number[0]):]
+        leng_1 =len(m)
+        b = [handle_command(name,i,"") for i in m][0]
+        print(f" > {name} replayed {leng_1} commands.")
+        show_position(name)
+        return b
+    
+    elif f"replay {number[0]}-{number[1]}" == com :
+        leng_0 =len(lis)
+        k = lis[leng_0-int(number[0]):leng_0-1]
+        leng_2 =len(k)
+        c = [handle_command(name,i,"") for i in k][0]
+        print(f" > {name} replayed {leng_2} commands.")
+        show_position(name)
+        return c
+            
+    elif "replay silent" == com or f"replay {number[0]} silent" == com:
+        return replay_silent(name,com,number)
+    
+    elif "replay reversed" == com or f"replay {number[0]} reversed" == com:
+        return replay_reversed(name,com,number)
+
+    elif "replay reversed silent" == com:
+        return replay_reversed_silent(name,com,number)
+
+
+def replay_reversed_silent(name,com,num):
+    """
+    Replays reversed commands without displaying information about its movement
+    but displays its final position.
+    """
+    
+    lis =command_history(com,num) 
+    lis_len = len(lis)
+    lis.reverse()
+    n_2 = [handle_command(name,i,"silent") for i in lis]
+    print(f" > {name} replayed {lis_len} commands in reverse silently.")
+    show_position(name)
+    return n_2
+
+    
+def replay_silent(name,com,num):
+    """Replays commands and displays only the final destination."""
+
+    lis =command_history(com,num) 
+    lis_len = len(lis)
+
+    if "replay silent" == com:
+        n_1 = [handle_command(name,i,"silent") for i in lis]
+        print(f" > {name} replayed {lis_len} commands silently.")
+        show_position(name)
+        return n_1
+    
+    else:
+        leng_0 =len(lis)
+        j = lis[leng_0-int(num[0]):]
+        leng_1 =len(j)
+        lis =command_history(com,num) 
+        lis_len = len(lis)
+        n_1 = [handle_command(name,i,"silent") for i in j]
+        print(f" > {name} replayed {leng_1} commands silently.")
+        show_position(name)
+        return n_1
+
+
+def replay_reversed(name,com,num):
+    """
+    Replays commands in reverse.
+    """
+
+    if "replay reversed" == com:
+        lis =command_history(com,num) 
+        lis_len = len(lis)
+        lis.reverse()
+        n = [handle_command(name,i,"") for i in lis]
+        print(f" > {name} replayed {lis_len} commands in reverse.")
+        show_position(name)
+        return n
+    
+    else:
+        lis =command_history(com,num) 
+        leng_0 =len(lis)
+        lis.reverse()
+        m = lis[leng_0-int(num[0]):]
+        leng_1 =len(m)
+        n = [handle_command(name,i,"") for i in m]
+        print(f" > {name} replayed {leng_1} commands in reverse.")
+        show_position(name)
+        return n
+
+
+def handle_command(robot_name, command,default):
     """
     Handles a command by asking different functions to handle each command.
     :param robot_name: the name given to robot
     :param command: the command entered by user
     :return: `True` if the robot must continue after the command, or else `False` if robot must shutdown
     """
-
+    global command_output
     (command_name, arg) = split_command_input(command)
 
     if command_name == 'off':
@@ -233,16 +348,53 @@ def handle_command(robot_name, command):
         (do_next, command_output) = do_left_turn(robot_name)
     elif command_name == 'sprint':
         (do_next, command_output) = do_sprint(robot_name, int(arg))
-
-    print(command_output)
-    show_position(robot_name)
+    elif command_name == "replay":
+        return  replay_command(robot_name,command)
+    
+        
+    if len(default) == 0 :
+        print(command_output)
+        show_position(robot_name)
     return do_next
 
+
+def command_history(commands,number):
+    """
+    Stores commands in a list.
+    """
+
+    x =[True if i in commands else False for i in valid_commands]
+    word =["replay","replay silent","replay reversed","replay reversed silent",f"replay {number[0]}", f"replay {number[0]}-{number[1]}",f"replay {number[0]} reversed",f"replay {number[0]} silent"]
+    if commands not in word and x :
+        hist_lis.append(commands)
+        return hist_lis
+    
+    else:
+        return hist_lis
+
+
+def number_locator(command):
+    """
+    Retrieves number from commands and returns them.
+    """
+    number =''
+    if "-" in command:
+        for i in command:
+            if i.isdigit() == True or i == "-":
+                number+=i
+        n = number.split("-")
+        return n
+    else:
+        for i in command:
+            if i.isdigit() == True:
+                number+=i
+        return [number,""]
+   
 
 def robot_start():
     """This is the entry point for starting my robot"""
 
-    global position_x, position_y, current_direction_index
+    global position_x, position_y, current_direction_index, hist_lis
 
     robot_name = get_robot_name()
     output(robot_name, "Hello kiddo!")
@@ -250,13 +402,20 @@ def robot_start():
     position_x = 0
     position_y = 0
     current_direction_index = 0
+    
 
     command = get_command(robot_name)
-    while handle_command(robot_name, command):
+    num_1 = number_locator(command)
+    command_history(command,num_1)
+    while handle_command(robot_name, command,""):
         command = get_command(robot_name)
-
+        num = number_locator(command)
+        hist_lis=command_history(command,num)
+        
+    hist_lis.clear()
     output(robot_name, "Shutting down..")
 
 
 if __name__ == "__main__":
     robot_start()
+    
